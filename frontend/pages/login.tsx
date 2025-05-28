@@ -16,15 +16,32 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
+    // Step 1: Try logging in
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError(error.message);
+    if (error?.message === "Invalid login credentials") {
+      // Step 2: Try signing up if login failed
+      const { error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (signupError) {
+        setError("Signup failed: " + signupError.message);
+        setLoading(false);
+        return;
+      }
+
+      // Signup success
+      router.push("/dashboard");
+    } else if (error) {
+      setError("Login failed: " + error.message);
     } else {
-      router.push("/dashboard"); // redirect to protected page
+      // Login success
+      router.push("/dashboard");
     }
 
     setLoading(false);
@@ -32,7 +49,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md w-full max-w-sm">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-6 rounded shadow-md w-full max-w-sm"
+      >
         <h1 className="text-2xl font-bold mb-4">Log in to Go4</h1>
 
         <input
@@ -60,7 +80,7 @@ export default function LoginPage() {
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
           disabled={loading}
         >
-          {loading ? "Logging in..." : "Log In"}
+          {loading ? "Processing..." : "Log In / Sign Up"}
         </button>
       </form>
     </div>
