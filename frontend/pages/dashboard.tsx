@@ -1,53 +1,79 @@
-// File: frontend/pages/dashboard.tsx
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../utils/supabaseClient";
 
-export default function DashboardPage() {
+const Dashboard = () => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
+    const getUserAndRole = async () => {
       const {
         data: { session },
         error,
       } = await supabase.auth.getSession();
 
-      if (error || !session) {
+      if (!session?.user) {
         router.push("/login");
+        return;
+      }
+
+      const { user } = session;
+      setUser(user);
+
+      const { data, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+
+      if (roleError) {
+        console.error("Error fetching user role:", roleError.message);
+        setRole(null);
       } else {
-        setUser(session.user);
+        setRole(data?.role || null);
       }
 
       setLoading(false);
     };
 
-    getUser();
+    getUserAndRole();
   }, [router]);
 
-  if (loading) {
-    return <div className="p-8">Loading...</div>;
-  }
+  if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto bg-white shadow p-6 rounded">
-        <h1 className="text-2xl font-bold mb-4">Welcome to Go4, {user?.email}</h1>
-        <p className="text-gray-700">This is your dashboard. More features coming soon.</p>
+    <div style={{ padding: "2rem" }}>
+      <h1>Welcome to Go4</h1>
+      <p>User: {user?.email}</p>
+      <p>Role: {role}</p>
 
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            router.push("/login");
-          }}
-          className="mt-6 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-        >
-          Sign Out
-        </button>
-      </div>
+      {role === "Owner" && (
+        <div>
+          <h2>Owner Dashboard</h2>
+          <p>You have full access to all settings and users.</p>
+        </div>
+      )}
+
+      {role === "Collaborator" && (
+        <div>
+          <h2>Collaborator Dashboard</h2>
+          <p>You can edit business cases and view analytics.</p>
+        </div>
+      )}
+
+      {role === "Viewer" && (
+        <div>
+          <h2>Viewer Dashboard</h2>
+          <p>You can only view data and reports.</p>
+        </div>
+      )}
+
+      {!role && <p>No role assigned to your user.</p>}
     </div>
   );
-}
+};
+
+export default Dashboard;
